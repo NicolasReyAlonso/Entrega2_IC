@@ -6,6 +6,7 @@
  *  Asignatura (GII-IC)
  * ---------------------------------------------------------------------- 
  */
+#include <LiquidCrystal_I2C.h>
 
 constexpr const uint32_t serial_monitor_bauds = 115200;
 constexpr const uint32_t serial1_bauds = 9600;
@@ -14,6 +15,7 @@ constexpr const uint32_t pseudo_period_ms = 1000;
 
 uint8_t counter = 0;
 uint8_t led_state = LOW;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 void setup() {
   // Configuración del LED incluido en placa
@@ -24,41 +26,41 @@ void setup() {
 
   // Inicialización del puerto para el serial monitor
   Serial.begin(serial_monitor_bauds);
-  while (!Serial)
-    ;
-
+  while (!Serial);
+  lcd.init();           // inicializa el LCD
+  lcd.backlight();      // enciende la luz de fondo
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("LCD listo!");
+  delay(1000);
+  lcd.clear();
   // Inicialización del puerto de comunicaciones con el otro dispositivo MKR
   Serial1.begin(serial1_bauds);
 }
 
 void loop() {
-  Serial.println("******************* sending example *******************");
-
-  Serial.print("--> sending: ");
-  Serial.println(static_cast<int>(counter));
-  Serial1.write(counter++);
-
-  uint32_t last_ms = millis();
-  while (millis() - last_ms < pseudo_period_ms) {
+    
     if (Serial1.available() > 0) {
       uint8_t data = Serial1.read();
       Serial.print("<-- received: ");
       Serial.println(static_cast<int>(data));
-      break;
+      digitalWrite(LED_BUILTIN, led_state);
+      led_state = (led_state + 1) & 0x01;
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Recibido:");
+      lcd.setCursor(0, 1);
+      lcd.print(data, BIN); // lo muestra en binario (o usa DEC/HEX)
     }
     if (Serial.available() > 0) {
       String input = Serial.readStringUntil('\n');
       parseCommand(input);
     }
-  }
+  
 
-  if (millis() - last_ms < pseudo_period_ms) delay(pseudo_period_ms - (millis() - last_ms));
-  else Serial.println("<-- received: TIMEOUT!!");
 
-  Serial.println("*******************************************************");
 
-  digitalWrite(LED_BUILTIN, led_state);
-  led_state = (led_state + 1) & 0x01;
+
 }
 
 void parseCommand(String input) {

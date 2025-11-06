@@ -26,28 +26,18 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("******************** echo example *********************");
-
   uint32_t last_ms = millis();
   bool received = false;
 
-  while (millis() - last_ms < pseudo_period_ms) {
     if (Serial1.available() > 0) {
       uint8_t data = Serial1.read();
       Serial.print("<-- received: ");
-      Serial.println(static_cast<int>(data));
+      Serial.println(data, BIN);
       Serial.print("--> sending back: ");
-      Serial.println(static_cast<int>(data));
+      Serial.println(data, BIN);
       Serial1.write(data);
       received = true;
-      break;
     }
-  }
-
-  if (!received)
-    Serial.println("<-- received: TIMEOUT!!");
-
-  Serial.println("*******************************************************");
 
   digitalWrite(LED_BUILTIN, led_state);
   led_state = (led_state + 1) & 0x01;
