@@ -13,6 +13,8 @@ constexpr const uint32_t serial1_bauds = 9600;
 
 constexpr const uint32_t pseudo_period_ms = 1000;
 
+String slaveBuffer = "";
+
 uint8_t counter = 0;
 uint8_t led_state = LOW;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -40,18 +42,15 @@ void setup() {
 
 void loop() {
     
-    if (Serial1.available() > 0) {
-      uint8_t data = Serial1.read();
-      Serial.print("<-- received: ");
-      Serial.println(static_cast<int>(data));
-      digitalWrite(LED_BUILTIN, led_state);
-      led_state = (led_state + 1) & 0x01;
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Recibido:");
-      lcd.setCursor(0, 1);
-      lcd.print(data, BIN); // lo muestra en binario (o usa DEC/HEX)
+     while (Serial1.available() > 0) {
+    char c = Serial1.read();
+    if (c == '\n') {
+      parseSlaveMessage(slaveBuffer);
+      slaveBuffer = "";
+    } else {
+      slaveBuffer += c;
     }
+  }
     if (Serial.available() > 0) {
       String input = Serial.readStringUntil('\n');
       parseCommand(input);
@@ -179,3 +178,111 @@ void parseCommand(String input) {
     Serial.println("[ERROR] Comando no reconocido.");
   }
 }
+void parseSlaveMessage(String msg) {
+  Serial.print("[RAW BYTES] ");
+for (int i = 0; i < msg.length(); i++) {
+  Serial.print((uint8_t)msg[i], HEX);
+  Serial.print(' ');
+}
+Serial.println();
+
+  msg.trim();
+  if (msg.length() == 0) return;
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  Serial.print("[SLAVE] Mensaje: ");
+  Serial.println(msg);
+
+  // Caso especial: error
+  if (msg == "11111111") {
+    Serial.println("[ERROR] Respuesta de error del esclavo");
+    lcd.print("Error del esclavo");
+    return;
+  }
+
+  // Validar longitud mínima (8 bits + campos)
+  if (msg.length() < 8) {
+    Serial.println("CODE NOT FOUND");
+    lcd.print("CODE NOT FOUND");
+    return;
+  }
+
+  // Leer bits base
+  String header = msg.substring(0, 8);
+  String tail = msg.substring(8);
+
+  if (header.endsWith("10")) {
+    // Regular response: XXXXXX10 + YYYYYYYY + ZZZZZZZZ + WWWWWWWW
+    if (tail.length() < 24) {
+      Serial.println("CODE NOT FOUND");
+      lcd.print("CODE NOT FOUND");
+      return;
+    }
+
+    String Y = tail.substring(0, 8);
+    String Z = tail.substring(8, 16);
+    String W = tail.substring(16, 24);
+
+    int unidad_code = binToDec(Z) & 0b11;
+    String unidad = (unidad_code == 0b00) ? "ms" :
+                    (unidad_code == 0b01) ? "cm" :
+                    (unidad_code == 0b10) ? "inc" : "unk";
+
+    Serial.println("[SLAVE] Respuesta regular:");
+    Serial.print("  Sensor: "); Serial.println(binToDec(Y));
+    Serial.print("  Unidad: "); Serial.println(unidad);
+    Serial.print("  Valor : "); Serial.println(binToDec(W));
+
+    lcd.print("Sensor "); lcd.print(binToDec(Y));
+    lcd.setCursor(0, 1);
+    lcd.print(binToDec(W)); lcd.print(" "); lcd.print(unidad);
+  }
+
+  else if (header.endsWith("01")) {
+    // Status response: XXXXXX01 + YYYYYYYY + ZZZZZZZZ + WWWWWWWW + VVVVVVVV
+    if (tail.length() < 32) {
+      Serial.println("CODE NOT FOUND");
+      lcd.print("CODE NOT FOUND");
+      return;
+    }
+
+    String Y = tail.substring(0, 8);
+    String Z = tail.substring(8, 16);
+    String W = tail.substring(16, 24);
+    String V = tail.substring(24, 32);
+
+    int unidad_code = binToDec(W) & 0b11;
+    String unidad = (unidad_code == 0b00) ? "ms" :
+                    (unidad_code == 0b01) ? "cm" :
+                    (unidad_code == 0b10) ? "inc" : "unk";
+
+    String periodic = (binToDec(V) == 0b00) ? "ON" : "OFF";
+
+    Serial.println("[SLAVE] Status response:");
+    Serial.print("  I2C Addr: "); Serial.println(binToDec(Y));
+    Serial.print("  Delay ms: "); Serial.println(binToDec(Z));
+    Serial.print("  Unidad  : "); Serial.println(unidad);
+    Serial.print("  Periodic: "); Serial.println(periodic);
+
+    lcd.print("I2C "); lcd.print(binToDec(Y));
+    lcd.setCursor(0, 1);
+    lcd.print(unidad); lcd.print(" "); lcd.print(periodic);
+  }
+
+  else {
+    Serial.println("CODE NOT FOUND");
+    lcd.print("CODE NOT FOUND");
+  }
+}
+
+
+int binToDec(String bits) {
+  int val = 0;
+  for (int i = 0; i < bits.length(); i++) {
+    val = (val << 1) | (bits[i] == '1' ? 1 : 0);
+  }
+  return val;
+}
+
