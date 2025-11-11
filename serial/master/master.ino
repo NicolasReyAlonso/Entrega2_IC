@@ -4,13 +4,16 @@
  * ---------------------------------------------------------------------- 
  */
 
-#include <SoftwareSerial.h>
 #include <LiquidCrystal_I2C.h>
 
-#define RX_PIN 10
-#define TX_PIN 11
+#ifdef ARDUINO_AVR_UNO
+#include <SoftwareSerial.h>
+constexpr uint8_t RX_PIN = 8;
+constexpr uint8_t TX_PIN = 9;
+SoftwareSerial Serial1(RX_PIN, TX_PIN);  // RX, TX
+#endif
 
-SoftwareSerial Serial1(RX_PIN, TX_PIN);
+
 
 constexpr const uint32_t serial_monitor_bauds = 115200;
 constexpr const uint32_t serial1_bauds = 9600;
@@ -23,8 +26,9 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
 
   Serial.begin(serial_monitor_bauds);
-  while (!Serial);
-  
+  while (!Serial)
+    ;
+
   lcd.init();
   lcd.backlight();
   lcd.clear();
@@ -32,9 +36,9 @@ void setup() {
   lcd.print("LCD listo!");
   delay(1000);
   lcd.clear();
-  
+
   Serial1.begin(serial1_bauds);
-  
+
   Serial.println("=== SUPERVISOR INICIADO ===");
   Serial.println("Escribe 'help' para ver comandos disponibles");
 }
@@ -45,7 +49,7 @@ void loop() {
     uint8_t byte = Serial1.read();
     parseSlaveMessage(byte);
   }
-  
+
   // Leer comandos del usuario
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
@@ -60,7 +64,7 @@ void parseCommand(String input) {
   String tokens[5];
   int count = 0;
   int last = 0;
-  
+
   for (int i = 0; i <= input.length(); i++) {
     if (input[i] == ' ' || i == input.length()) {
       tokens[count++] = input.substring(last, i);
@@ -82,7 +86,7 @@ void parseCommand(String input) {
     Serial.println("  us <id> unit {inc|cm|ms}          -> Cambia la unidad de medida");
     Serial.println("  us <id> delay <ms>                -> Establece retardo entre disparos");
     Serial.println("  us <id> status                    -> Muestra configuración del sensor\n");
-    
+
     uint8_t code = 0x00;
     Serial1.write(code);
     return;
@@ -108,12 +112,12 @@ void parseCommand(String input) {
       else if (tokens[3] == "inc") unit_bits = 0b10;
 
       uint8_t header = 0b11010000 | (unit_bits << 2);
-      
+
       Serial.print("[CMD] us ");
       Serial.print(srf);
       Serial.print(" unit ");
       Serial.println(tokens[3]);
-      
+
       Serial1.write(header);
       Serial1.write(sensor_id);
       return;
@@ -128,7 +132,7 @@ void parseCommand(String input) {
 
       uint16_t period = (tokens[2] == "on" && count >= 4) ? tokens[3].toInt() : 0;
       uint8_t header = 0b11000000 | (mode_bits << 2);
-      
+
       Serial.print("[CMD] us ");
       Serial.print(srf);
       Serial.print(" ");
@@ -140,7 +144,7 @@ void parseCommand(String input) {
       } else {
         Serial.println();
       }
-      
+
       Serial1.write(header);
       Serial1.write(sensor_id);
       Serial1.write(period & 0xFF);
@@ -152,13 +156,13 @@ void parseCommand(String input) {
     if (tokens[2] == "delay" && count >= 4) {
       uint16_t delay_ms = tokens[3].toInt();
       uint8_t header = 0b11100000;
-      
+
       Serial.print("[CMD] us ");
       Serial.print(srf);
       Serial.print(" delay ");
       Serial.print(delay_ms);
       Serial.println(" ms");
-      
+
       Serial1.write(header);
       Serial1.write(sensor_id);
       Serial1.write(delay_ms & 0xFF);
@@ -169,11 +173,11 @@ void parseCommand(String input) {
     // ---- status ----
     if (tokens[2] == "status") {
       uint8_t header = 0b11110000;
-      
+
       Serial.print("[CMD] us ");
       Serial.print(srf);
       Serial.println(" status");
-      
+
       Serial1.write(header);
       Serial1.write(sensor_id);
       return;
@@ -187,7 +191,7 @@ void parseCommand(String input) {
 
 void parseSlaveMessage(uint8_t firstByte) {
   uint8_t header = firstByte & 0xF0;
-  
+
   // Error (0xFF)
   if (firstByte == 0xFF) {
     Serial.println("[SLAVE] ERROR del dispositivo sensor");
@@ -196,25 +200,27 @@ void parseSlaveMessage(uint8_t firstByte) {
     lcd.print("ERROR ESCLAVO");
     return;
   }
-  
+
   // ACK (0x00)
   if (firstByte == 0x00) {
     Serial.println("[SLAVE] OK - Comando ejecutado correctamente");
     return;
   }
-  
+
   // Lista de sensores (0x80)
   if (firstByte == 0x80) {
-    while (Serial1.available() < 1);
+    while (Serial1.available() < 1)
+      ;
     uint8_t numSensors = Serial1.read();
-    
+
     Serial.println("[SLAVE] Sensores disponibles:");
-    
+
     for (uint8_t i = 0; i < numSensors; i++) {
-      while (Serial1.available() < 2);
+      while (Serial1.available() < 2)
+        ;
       uint8_t addr = Serial1.read();
       uint8_t active = Serial1.read();
-      
+
       Serial.print("  Sensor ");
       Serial.print(i);
       Serial.print(": I2C=0x");
@@ -224,29 +230,30 @@ void parseSlaveMessage(uint8_t firstByte) {
     }
     return;
   }
-  
+
   // Medida (0x10 - header termina en ...10000)
   if ((firstByte & 0x0F) == 0x00 && (header == 0x10 || header == 0x00)) {
-    while (Serial1.available() < 4);
-    
+    while (Serial1.available() < 4)
+      ;
+
     uint8_t sensor_id = Serial1.read();
     uint8_t unit_byte = Serial1.read();
     uint8_t measure_high = Serial1.read();
     uint8_t measure_low = Serial1.read();
-    
+
     uint16_t measure = (measure_high << 8) | measure_low;
-    
-    String unidad = (unit_byte == 0) ? "ms" :
-                    (unit_byte == 1) ? "cm" :
-                    (unit_byte == 2) ? "inc" : "unk";
-    
+
+    String unidad = (unit_byte == 0) ? "ms" : (unit_byte == 1) ? "cm"
+                                            : (unit_byte == 2) ? "inc"
+                                                               : "unk";
+
     Serial.print("[SLAVE] Medida - Sensor ");
     Serial.print(sensor_id);
     Serial.print(": ");
     Serial.print(measure);
     Serial.print(" ");
     Serial.println(unidad);
-    
+
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Sensor ");
@@ -257,25 +264,26 @@ void parseSlaveMessage(uint8_t firstByte) {
     lcd.print(unidad);
     return;
   }
-  
+
   // Status (0x01)
   if (firstByte == 0x01) {
-    while (Serial1.available() < 5);
-    
+    while (Serial1.available() < 5)
+      ;
+
     uint8_t i2c_addr = Serial1.read();
     uint8_t delay_high = Serial1.read();
     uint8_t delay_low = Serial1.read();
     uint8_t unit_byte = Serial1.read();
     uint8_t periodic_byte = Serial1.read();
-    
+
     uint16_t delay_ms = (delay_high << 8) | delay_low;
-    
-    String unidad = (unit_byte == 0) ? "ms" :
-                    (unit_byte == 1) ? "cm" :
-                    (unit_byte == 2) ? "inc" : "unk";
-    
+
+    String unidad = (unit_byte == 0) ? "ms" : (unit_byte == 1) ? "cm"
+                                            : (unit_byte == 2) ? "inc"
+                                                               : "unk";
+
     String periodic = (periodic_byte == 0x00) ? "SI" : "NO";
-    
+
     Serial.println("[SLAVE] Status del sensor:");
     Serial.print("  I2C Addr  : 0x");
     Serial.println(i2c_addr, HEX);
@@ -286,7 +294,7 @@ void parseSlaveMessage(uint8_t firstByte) {
     Serial.println(unidad);
     Serial.print("  Periódico : ");
     Serial.println(periodic);
-    
+
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("I2C:");
@@ -298,7 +306,7 @@ void parseSlaveMessage(uint8_t firstByte) {
     lcd.print(periodic);
     return;
   }
-  
+
   Serial.print("[SLAVE] Código desconocido: 0x");
   Serial.println(firstByte, HEX);
 }

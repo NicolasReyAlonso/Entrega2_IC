@@ -18,6 +18,13 @@
 
 #define NUM_SENSORS 2
 
+#ifdef ARDUINO_AVR_UNO
+#include <SoftwareSerial.h>
+constexpr uint8_t RX_PIN = 8;
+constexpr uint8_t TX_PIN = 9;
+SoftwareSerial Serial1(RX_PIN, TX_PIN);  // RX, TX
+#endif
+
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 struct SensorConfig {
