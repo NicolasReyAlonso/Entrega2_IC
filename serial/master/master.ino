@@ -107,9 +107,18 @@ void parseCommand(String input) {
     // ---- UNIT ----
     if (tokens[2] == "unit" && count >= 4) {
       uint8_t unit_bits = 0b00;
-      if (tokens[3] == "ms") unit_bits = 0b00;
-      else if (tokens[3] == "cm") unit_bits = 0b01;
-      else if (tokens[3] == "inc") unit_bits = 0b10;
+      if (tokens[3] == "ms") {
+        unit_bits = 0b00;
+      } else if (tokens[3] == "cm") {
+        unit_bits = 0b01;
+      } else if (tokens[3] == "inc") {
+        unit_bits = 0b10;
+      } else {
+        Serial.print("[ERROR] Unidad inválida '");
+        Serial.print(tokens[3]);
+        Serial.println("'. Use: ms, cm, inc");
+        return;
+      }
 
       uint8_t header = 0b11010000 | (unit_bits << 2);
 
@@ -126,9 +135,18 @@ void parseCommand(String input) {
     // ---- one-shot / on / off ----
     if (tokens[2] == "one-shot" || tokens[2] == "on" || tokens[2] == "off") {
       uint8_t mode_bits = 0b00;
-      if (tokens[2] == "one-shot") mode_bits = 0b00;
-      else if (tokens[2] == "off") mode_bits = 0b01;
-      else if (tokens[2] == "on") mode_bits = 0b10;
+      if (tokens[2] == "one-shot") {
+        mode_bits = 0b00;
+      } else if (tokens[2] == "off") {
+        mode_bits = 0b01;
+      } else if (tokens[2] == "on") {
+        mode_bits = 0b10;
+      } else {
+        Serial.print("[ERROR] Comando inválido '");
+        Serial.print(tokens[2]);
+        Serial.println("'. Use: one-shot, on, off");
+        return;
+      }
 
       uint16_t period = (tokens[2] == "on" && count >= 4) ? tokens[3].toInt() : 0;
       uint8_t header = 0b11000000 | (mode_bits << 2);

@@ -40,8 +40,8 @@ struct SensorConfig {
 };
 
 SensorConfig sensors[NUM_SENSORS] = {
-  {SRF01_I2C_ADDRESS, 1, 80, false, 0, 0, 0, false, "SRF01"},
-  {SRF02_I2C_ADDRESS, 1, 80, false, 0, 0, 0, false, "SRF02"}
+  {SRF01_I2C_ADDRESS, 1, 70, false, 0, 0, 0, false, "SRF01"},
+  {SRF02_I2C_ADDRESS, 1, 70, false, 0, 0, 0, false, "SRF02"}
 };
 
 bool isI2CDeviceAvailable(uint8_t address) {
@@ -195,6 +195,11 @@ void handleCommand(uint8_t code) {
       updateOLEDStatus();
     }
     else if (mode_bits == 0b10) {  // on
+
+    if (period < 70) {
+      sendResponse(0xFF);  // Período muy corto
+      return;
+    }
       s.periodic = true;
       s.periodMs = period;
       s.lastShot = millis();
@@ -214,6 +219,11 @@ void handleCommand(uint8_t code) {
     
     if (sensor_id >= NUM_SENSORS) {
       sendResponse(0xFF);
+      return;
+    }
+
+    if (delay_ms < 70) {
+      sendResponse(0xFF);  // Delay muy corto
       return;
     }
     
