@@ -7,8 +7,8 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 
-#define SRF01_I2C_ADDRESS byte((0xC0)>>1)
-#define SRF02_I2C_ADDRESS byte((0xD6)>>1)
+#define SRF01_I2C_ADDRESS byte((0xE0)>>1)
+#define SRF02_I2C_ADDRESS byte((0xF2)>>1)
 #define SRF02_CMD_REG 0x00
 #define SRF02_RANGE_HIGH 0x02
 

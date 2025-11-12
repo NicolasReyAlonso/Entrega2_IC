@@ -15,7 +15,7 @@ SoftwareSerial Serial1(RX_PIN, TX_PIN);  // RX, TX
 
 
 
-constexpr const uint32_t serial_monitor_bauds = 115200;
+constexpr const uint32_t serial_monitor_bauds = 9600;
 constexpr const uint32_t serial1_bauds = 9600;
 
 String slaveBuffer = "";
