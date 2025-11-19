@@ -4,6 +4,9 @@
  * ---------------------------------------------------------------------- 
  */
 
+ //José Manuel Díaz Hernández
+ //Nicolás Rey Alonso
+
 #include <LiquidCrystal_I2C.h>
 
 #ifdef ARDUINO_AVR_UNO
